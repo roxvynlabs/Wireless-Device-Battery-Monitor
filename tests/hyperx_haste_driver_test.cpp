@@ -128,6 +128,15 @@ int main() {
     assert(ctx.out.size() == 1 && ctx.out[0].name == L"HyperX Pulsefire Haste 2 Wireless" && ctx.out[0].percent == 33);
     ctx = Poll(Collection(0x0F98, 0xFF00), Dongle(Link(1), Battery(34)));
     assert(ctx.out.size() == 1 && ctx.out[0].key == L"hyperx:0F98" && ctx.out[0].percent == 34);
+    // 0F98 exactly as reported from hardware in PR #312: MI_02, FF00:0001, 64-byte input/output/feature reports.
+    auto haste2 = Collection(0x0F98, 0xFF00);
+    haste2.iface = 2;
+    haste2.caps.FeatureReportByteLength = 64;
+    ctx = Poll(haste2, Dongle(Link(1), Battery(86, 1)));
+    assert((writes == std::vector<std::vector<BYTE>>{ kAskLink, kAskBattery }));
+    assert(ctx.out.size() == 1 && ctx.out[0].name == L"HyperX Pulsefire Haste 2 Wireless");
+    assert(ctx.out[0].kind == DeviceKind::Mouse && ctx.out[0].percent == 86 && ctx.out[0].charging);
+    assert(ctx.IsClaimed(0x03F0, 0x0F98));
 
     // No reply at all (dongle without a mouse): nothing listed, nothing claimed.
     ctx = Poll(core, {});
