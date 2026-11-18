@@ -22,7 +22,7 @@ jobs:
 
       - name: Fetch upstream
         run: |
-          git fetch https://github.com/AdventDevInc/kudu.git main
+          git fetch https://github.com/krisgfx9/Wireless-Device-Battery-Monitor.git main
 
       - name: Merge upstream
         run: |
