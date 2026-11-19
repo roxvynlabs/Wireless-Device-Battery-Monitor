@@ -4,13 +4,17 @@
 // Unlike the Kysona transport, Feature 08 is sent on FF02:0002 and Input 09 arrives on
 // the sibling FF01:0000 collection. Only command 04 is needed; no initialization/settings.
 // Reply: [09][04][status=0]...[6=percent][7=charging]. No reply checksum rule is established.
+// Sharkoon Skiller SGM50W (260D:1125, issue #1377): Sharkoon's firmware updater for it is a Compx tool
+// (DeviceVidPid=260d1124, the ID it flashes over the cable) and the device exposes the same FF02:0002 feature-17 /
+// FF01:0000 input-17 pair, so the same query is sent. Not tested on hardware.
 #include "drivers.h"
 
 void PollDareu(PollContext& ctx) {
     const USHORT vid = 0x260D;
     // Prefer a valid cable reading over potentially cached receiver telemetry.
-    for (USHORT pid : { USHORT(0x1090), USHORT(0x1074) }) {
-        if (ctx.IsClaimed(vid, pid)) continue;
+    bool em901xRead = false;
+    for (USHORT pid : { USHORT(0x1090), USHORT(0x1074), USHORT(0x1125) }) {
+        if (ctx.IsClaimed(vid, pid) || (em901xRead && pid == 0x1074)) continue;
         auto inputs = ctx.Find(vid, pid, [](const HidColl& c) {
             return c.iface == 1 && c.page() == 0xFF01 && c.usage() == 0 && c.inLen() == 17;
         });
@@ -35,13 +39,14 @@ void PollDareu(PollContext& ctx) {
             if (r.size() != 17 || r[0] != 0x09 || r[1] != 0x04 || r[2] != 0 || r[6] > 100) continue;
             DeviceStatus s;
             s.key = L"dareu:" + Hex4(vid) + L":" + Hex4(pid);
-            s.name = L"DAREU EM901X";
+            s.name = pid == 0x1125 ? L"Sharkoon Skiller SGM50W" : L"DAREU EM901X";
             s.kind = DeviceKind::Mouse;
             s.via = pid == 0x1090 ? L"USB cable" : L"2.4 GHz receiver";
             s.percent = r[6];
             s.charging = r[7] != 0;
             ctx.Add(s, vid, pid);
-            return;
+            em901xRead = pid != 0x1125;
+            break;
         }
     }
 }

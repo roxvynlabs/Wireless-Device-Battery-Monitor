@@ -4,6 +4,9 @@
 //   Output report 04 on FF1C:0092, 31 payload bytes: [04][seq lo][seq hi][1A][00 ...]
 //   Input report 04: [04][seq lo][seq hi][1A][..][00 00][..][percent][state: 0 on battery, 1/2 charging]
 // These ids are shared with other Evision keyboards, so the product name is checked as well.
+// The receiver is also sold under the generic name "Wireless Gaming Keyboard" (Feker Alice80 and others); the same
+// request and reply were confirmed on a Feker Alice80 on that receiver (seq echoed, command 1A, level at byte 8),
+// and its backlight still timed out while it was asked every minute. Such keyboards are shown under that name.
 // HaloBattery only asks over the receiver while the keyboard is being typed on, so a sleeping keyboard is
 // not woken. This app does not watch keyboard input, so it asks at most every 10 minutes over the receiver
 // instead (every poll on the cable, which powers the keyboard anyway).
@@ -55,10 +58,11 @@ void PollAtkKeyboard(PollContext& ctx) {
         for (const HidColl* c : ctx.Find(kVid, pid, [](const HidColl& c) { return c.page() == 0xFF1C && c.usage() == 0x0092; })) {
             std::wstring name = HidProduct(*c);
             while (!name.empty() && name.back() == L' ') name.pop_back();
-            if (_wcsicmp(name.c_str(), product) != 0) continue;
+            bool generic = !cable && _wcsicmp(name.c_str(), L"Wireless Gaming Keyboard") == 0;
+            if (!generic && _wcsicmp(name.c_str(), product) != 0) continue;
             DeviceStatus s;
             s.key = L"atk_keyboard:5088";  // one entry for the keyboard on either connection
-            s.name = L"ATK V75X";
+            s.name = generic ? L"Wireless Gaming Keyboard" : L"ATK V75X";
             s.kind = DeviceKind::Keyboard;
             s.via = cable ? L"USB cable" : L"2.4 GHz receiver";
             s.graceSec = 1800;

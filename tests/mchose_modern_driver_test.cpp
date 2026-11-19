@@ -109,6 +109,12 @@ int main() {
     ctx = Poll({ Reply(2, 1, 100) });
     assert(ctx.out.size() == 1 && ctx.out[0].percent == 100 && ctx.out[0].charging);
 
+    // The same mouse on its USB cable is a different product; link 1 and charge 1 while plugged in.
+    ctx = Poll({ Reply(1, 1, 25) }, Collection(0x4028, 0xFF01));
+    assert(ctx.out.size() == 1 && ctx.IsClaimed(0x3837, 0x4028));
+    assert(ctx.out[0].percent == 25 && ctx.out[0].charging && !ctx.out[0].asleep);
+    assert(ctx.out[0].key == L"mchose:3837:4028" && ctx.out[0].via == L"USB cable");
+
     // Mouse switched off: the receiver answers, but without battery data.
     ctx = Poll({ NotLinked() });
     assert(ctx.out.size() == 1 && ctx.IsClaimed(0x3837, 0x1014));

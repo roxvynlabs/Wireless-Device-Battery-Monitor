@@ -75,16 +75,9 @@ Reply GetBattery(HidDev& d, size_t minPayload, std::vector<BYTE>& payload) {
     return Reply::NoReply;
 }
 
-// Lowest bud charge percent, or -1 when both are docked. FF = docked
-// Values > 100 are invalid and skipped.
-int LowestBudOut(const std::vector<BYTE>& p) {
-    int lvl = -1;
-    for (int i : { 1, 3 }) {
-        if (p[i] > 100) continue;
-        lvl = lvl < 0 ? p[i] : std::min<int>(lvl, p[i]);
-    }
-    return lvl;
-}
+int Level(BYTE value) { return value <= 100 ? value : -1; }
+
+std::wstring Pct(int value) { return value >= 0 ? std::to_wstring(value) + L"%" : L"-"; }
 
 }  // namespace
 
@@ -115,9 +108,15 @@ void PollSonyInzone(PollContext& ctx) {
             if (reply != Reply::Ok) continue;
             DeviceStatus s = status();
             if (m.buds) {
-                int lvl = LowestBudOut(p);
-                s.connected = lvl >= 0;
-                s.percent = lvl;
+                int left = Level(p[1]);
+                int right = Level(p[3]);
+                int caseLevel = Level(p[5]);
+                s.percent = left < 0 || right < 0 ? std::max(left, right) : std::min(left, right);
+                s.connected = s.percent >= 0;
+                if (s.connected) {
+                    s.detail = L"L " + Pct(left) + L", R " + Pct(right);
+                    if (caseLevel >= 0) s.detail += L", case " + Pct(caseLevel);
+                }
             } else {
                 bool offline = p[1] == 0xFF;
                 s.connected = !offline;

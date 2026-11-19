@@ -52,7 +52,7 @@ bool GWolvesIsCable(USHORT pid);
 // Vendor drivers (run in this order).
 void PollGlorious(PollContext& ctx);  // also Hitscan
 void PollAula(PollContext& ctx);      // AULA F75 / F87 Pro / F99 / HERO 68 Air keyboards (before Kysona)
-void PollDareu(PollContext& ctx);     // DAREU EM901X receiver / cable (split feature/input collections)
+void PollDareu(PollContext& ctx);     // DAREU EM901X receiver / cable, Sharkoon SGM50W (split feature/input collections)
 void PollDarmoshark(PollContext& ctx); // Darmoshark M3 over its 2.4 GHz receiver
 void PollAtkSerial(PollContext& ctx); // ATK N9 Pro / N9 Ultra headsets (virtual COM port)
 void PollKeychron(PollContext& ctx);  // Keychron mice, Nape Pro trackball (Link-KM receiver)
@@ -68,7 +68,7 @@ void PollAudeze(PollContext& ctx);        // Audeze Maxwell (VID 3329) dongle or
 void PollNzxt(PollContext& ctx);          // NZXT Lift Elite Wireless (1E71:2101 / 2129)
 void PollPlantronics(PollContext& ctx);   // Poly / Plantronics headsets behind the BT600 adapter (047F)
 void PollVaxee(PollContext& ctx);     // VAXEE 4K receiver / NP-01S V2 cable, read-only battery commands
-void PollWlmouse(PollContext& ctx);   // WLMouse Beast X family (VID 36A7)
+void PollWlmouse(PollContext& ctx);   // WLMouse Beast X family and Beast G (VID 36A7)
 void PollFinalmouse(PollContext& ctx);  // Finalmouse UltralightX / Starlight X dongles (VID 361D), read-only GETs
 void PollNinjutso(PollContext& ctx);  // Sora V2 (1915:AE1C 1K receiver, AE11 cable) and Ten / Ten Air (093A:EB01 / 093A:E020)
 void PollSprime(PollContext& ctx);    // Sprime PM1 (1915:AC1C / AD8C receivers, AC11-AC13 cable)
@@ -84,7 +84,7 @@ void PollZowie(PollContext& ctx);     // BenQ ZOWIE EC-CW / DW / U2 mice
 void PollRoyalKludge(PollContext& ctx);  // Royal Kludge MG6 Pro (VID 2E3C, QiWang protocol)
 void PollMchoseG3(PollContext& ctx);  // MCHOSE G3 V2 wireless mouse (VID 3837)
 void PollMsi(PollContext& ctx);       // MSI wireless mice: VERSA 300 ELITE, CLUTCH GM31 / GM41
-void PollMchoseModern(PollContext& ctx);  // MCHOSE K7 V2 Ultra+ and other new-family mice (VID 3837 receiver)
+void PollMchoseModern(PollContext& ctx);  // MCHOSE K7 V2 Ultra+ (VID 3837 receiver or USB cable) and other new-family mice
 void PollMchoseHeadset(PollContext& ctx);  // MCHOSE V9 Pro 2 headset (3837:6011, M HUB "MC" protocol)
 void PollRapoo(PollContext& ctx);     // Rapoo VT gaming mice incl. VT1 Pro Max (passive battery reports)
 void PollAreson(PollContext& ctx);    // Areson 25A7 receivers (Redragon M913 / M915)
@@ -110,10 +110,10 @@ void PollPlayStation(PollContext& ctx);
 void PollSwitchPro(PollContext& ctx);  // Passive Switch Pro battery reports (057E:2009)
 void PollSteamController(PollContext& ctx);
 void PollGameSir(PollContext& ctx);    // Nova Lite / Nova 2 / Nova 2 Lite
-void PollFlydigi(PollContext& ctx);    // Vader 5 Pro vendor battery channel
+void PollFlydigi(PollContext& ctx);    // Vader 5 Pro / Apex 5 vendor battery channel
 void PollGameSirCyclone(PollContext& ctx);  // Cyclone 2 (XInput mode)
 void Poll8BitDo(PollContext& ctx);     // Ultimate 2 Wireless in D-input mode (2DC8:6012)
-void PollBeitong(PollContext& ctx);    // BEITONG KP20 on its 2.4 GHz receiver (20BC:5128, XInput mode)
+void PollBeitong(PollContext& ctx);    // BEITONG KP20 / KP40D on their 2.4 GHz receivers (20BC:5128, 20BC:515C, XInput mode)
 void PollAirPods(PollContext& ctx);   // Apple AirPods / Beats (BLE proximity broadcasts)
 void PollPhoneLink(PollContext& ctx);  // phone linked with Microsoft Phone Link (reads its Start menu card)
 void PollGalaxyBuds(PollContext& ctx); // Samsung Galaxy Buds (Bluetooth RFCOMM, not HID)

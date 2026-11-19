@@ -39,6 +39,7 @@ int main() {
     Expect(L"jbl:x", L"Quantum 910", 0, K::Headset, Accent::Jbl);
     Expect(L"coolermaster:x", L"MM712", 0, K::Mouse, Accent::CoolerMaster);
     Expect(L"steam:x", L"Controller", 0, K::Gamepad, Accent::Steam);
+    Expect(L"redragon:fa7e", L"Invader Pro", 0, K::Mouse, Accent::Redragon);
     // Vendor ids (HeadsetControl and plain Bluetooth / HID devices).
     Expect(L"hsc:1038:12e0", L"Arctis Nova 7", 0x1038, K::Headset, Accent::SteelSeries);
     Expect(L"hsc:1b1c:0a6b", L"Void Wireless", 0x1B1C, K::Headset, Accent::Corsair);
@@ -55,6 +56,7 @@ int main() {
     Expect(L"bt:{x}", L"JBL Tune 770NC", 0, K::Headset, Accent::Jbl);
     Expect(L"bt:{x}", L"Jabra Elite 8 Active", 0, K::Headset, Accent::Jabra);
     Expect(L"bt:{x}", L"Aerox 5 Wireless", 0, K::Mouse, Accent::SteelSeries);
+    Expect(L"aula:3554:fa09", L"Redragon Horus Pro", 0x3554, K::Keyboard, Accent::Redragon);
     // Look-alikes that must stay plain.
     Expect(L"bt:{x}", L"HP 430 Multi-Device Mouse", 0x03F0, K::Mouse, Accent::None);
     Expect(L"bt:{x}", L"Surface Precision Mouse", 0x045E, K::Mouse, Accent::None);

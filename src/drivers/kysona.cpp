@@ -28,6 +28,20 @@ bool IsVxeR1(USHORT vid, USHORT pid) {
            (pid == 0xF58A || pid == 0xF58C || pid == 0xF58E || pid == 0xF58F || pid == 0xF505 || pid == 0xF506);
 }
 
+// A VXE R1 cable reports under its receiver's id, so the mouse is one entry on either connection.
+// F58A / F58C verified; the other pairs follow the order PR #69 lists them in.
+USHORT KeyPid(USHORT vid, USHORT pid) {
+    if (vid == 0x3554 && pid == 0xF58C) return 0xF58A;
+    if (vid == 0x3554 && pid == 0xF58F) return 0xF58E;
+    if (vid == 0x3554 && pid == 0xF506) return 0xF505;
+    return pid;
+}
+
+// HECATE (Edifier) also sells headsets under 35BB (G2 Wireless 7.1: dongles A009 / A209) with a 64-byte
+// FF02:0002 vendor collection that speaks something else; only the mouse ids from HECATE Connect's
+// Config.ini (dongle D3FB, mouse over cable D3FA / D3FC / D3FD) get Kysona frames.
+bool IsHecateMouse(USHORT pid) { return pid == 0xD3FA || pid == 0xD3FB || pid == 0xD3FC || pid == 0xD3FD; }
+
 bool IsCable(USHORT vid, USHORT pid) {
     bool hecate_cable = vid == 0x35BB && (pid == 0xD3FA || pid == 0xD3FC || pid == 0xD3FD);
     return (vid == 0x33E4 && GWolvesIsCable(pid)) || hecate_cable ||
@@ -79,6 +93,13 @@ void PollKysona(PollContext& ctx) {
             // ATK N9 Pro / N9 Ultra headsets speak a serial protocol (atk_serial.cpp); never send
             // them mouse frames, even when the ATK app holds their port and they stay unclaimed.
             if (vid == 0x373B && (pid == 0x11CA || pid == 0x11CB || pid == 0x1203 || pid == 0x1204)) continue;
+            // 3554:FA09 / FB40 are the "BY" keyboard receivers (AULA, MCHOSE, also used by the Redragon
+            // K673) that aula.cpp handles. Their FF02:0002 collection passes the size check below, so a
+            // keyboard aula.cpp could not read got two mouse frames every poll, which kept a K673 from
+            // going to sleep (issue #191). Never send them mouse frames.
+            if (vid == 0x3554 && (pid == 0xFA09 || pid == 0xFB40)) continue;
+            // Same for HECATE headsets (G2 Wireless 7.1, issue #1358): mouse frames only go to HECATE mouse ids.
+            if (vid == 0x35BB && !IsHecateMouse(pid)) continue;
             // Kysona exposes a dedicated 17-byte collection; ATK / VXE receivers put report 08 in a
             // vendor collection that also carries larger reports. The checksummed reply filters out
             // anything that does not speak this protocol.
@@ -113,7 +134,7 @@ void PollKysona(PollContext& ctx) {
                     ctx.Claim(vid, pid);
                     break;
                 }
-                s.key = L"kysona:" + Hex4(vid) + L":" + Hex4(pid);
+                s.key = L"kysona:" + Hex4(vid) + L":" + Hex4(KeyPid(vid, pid));
                 s.name = CleanName(HidProduct(*c), vid, pid);
                 s.kind = KindFromCollections(ctx.colls, vid, pid);
                 if (s.kind == DeviceKind::Other) s.kind = DeviceKind::Mouse;

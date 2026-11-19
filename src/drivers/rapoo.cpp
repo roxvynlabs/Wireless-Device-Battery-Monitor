@@ -10,6 +10,10 @@
 //    receiver `BB B0 71 84 03 01 64` every ~3.2 s (Rapoo app: 100%), cable while charging
 //    `BB B0 71 84 03 02 5F` (state 2 = charging, 95%).
 // Legacy BB semantics are restricted to the product IDs above; other Telink firmware differs.
+//  * VT3 Max Gen 2 receiver 1417 on another firmware revision (issue #1396) exposes a 13-byte
+//    FF00:0002 collection. Rapoo Hub's VT_nrf54L decoder reads report 07 at any length and only
+//    takes the optional fields when present, so state/percent at bytes 7/8 still fit; the mouse
+//    PID at 13..14 does not, so identity falls back to the receiver PID (same rapoo:4617 key).
 #include "drivers.h"
 #include "rapoo_protocol.h"
 
@@ -103,7 +107,8 @@ void PollRapoo(PollContext& ctx) {
         for (const HidColl* c : ctx.Find(vid, pid, [pid](const HidColl& c) {
                  // The other vendor collections are for configuration/firmware, not battery.
                  return c.page() == 0xFF00 && c.usage() == 0x0002 &&
-                        (c.inLen() == 16 || c.inLen() == 19 || (c.inLen() == 7 && IsLegacyVT3Pro(pid)));
+                        (c.inLen() == 16 || c.inLen() == 19 || (c.inLen() == 13 && pid == 0x1417) ||
+                         (c.inLen() == 7 && IsLegacyVT3Pro(pid)));
              })) {
             present.insert(c->path);
             auto& slot = g_rapoo[c->path];

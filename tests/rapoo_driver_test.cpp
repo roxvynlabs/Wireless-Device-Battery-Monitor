@@ -145,6 +145,24 @@ int main() {
     assert(ctx.out[0].charging && ctx.out[0].via == L"USB cable");
     assert(ctx.IsClaimed(0x24AE, 0x1414) && ctx.IsClaimed(0x24AE, 0x4614));
 
+    // VT3 Max Gen 2 receivers on another firmware revision expose a 13-byte collection (issue #1396).
+    // Frame built from the tested 19-byte capture cut to 13 bytes; no embedded mouse PID fits.
+    ctx = {};
+    ctx.colls = { Collection(0x1417, L"vt3max-13", 13) };
+    reports = { { L"vt3max-13", { { 0x07, 0x20, 0x03, 0x20, 0x03, 0x20, 0x03, 0x01,
+                                    0x19, 0x00, 0x04, 0x84, 0x00 } } } };
+    PollRapoo(ctx);
+    assert(ctx.out.size() == 1 && ctx.out[0].key == L"rapoo:4617");
+    assert(ctx.out[0].name == L"Rapoo VT3 Max (Gen 2)" && ctx.out[0].percent == 25);
+    assert(!ctx.out[0].charging && ctx.out[0].via == L"2.4 GHz receiver");
+    assert(ctx.IsClaimed(0x24AE, 0x1417));
+    // The 13-byte length is only accepted on 1417.
+    opens = 0;
+    ctx = {};
+    ctx.colls = { Collection(0x1414, L"other-13", 13) };
+    PollRapoo(ctx);
+    assert(opens == 0 && ctx.out.empty());
+
     // Persistent handle stays open between polls so queued reports are drained (newest wins)
     // without reopening, and is forgotten once the device disappears.
     opens = 0;

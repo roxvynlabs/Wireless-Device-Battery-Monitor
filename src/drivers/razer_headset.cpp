@@ -76,6 +76,8 @@ struct Cached { ULONGLONG at = 0; DeviceStatus status; bool valid = false; };
 std::map<USHORT, Cached> g_cache;
 
 const wchar_t* Name(USHORT pid) { return (pid == 0x0576 || pid == 0x0577) ? L"Razer BlackShark V3 Pro" : L"Razer BlackShark V3"; }
+// The lower id of each pair is the USB cable, the higher one the wireless receiver (0579 cable / 057A receiver).
+bool Cable(USHORT pid) { return pid == 0x0576 || pid == 0x0579; }
 
 // ---- BlackShark V2 HyperSpeed: MediaTek vendor HID (NOT V2 Pro PA protocol) ----------------------
 // Based on justik13/razer-blackshark-v2-hyperspeed-webhid (MIT).
@@ -498,13 +500,15 @@ void PollRazerHeadsets(PollContext& ctx) {
         d.Flush();
         std::vector<BYTE> r;
         if (!Get(d, 0x21, r) || r[13] > 100) continue;
+        std::vector<BYTE> cableState;
+        const bool cableCharging = Get(d, 0x2A, cableState) && cableState[13] == 1;
         DeviceStatus s;
         s.key = L"blackshark:" + Hex4(pid);
         s.name = Name(pid);
         s.kind = DeviceKind::Headset;
-        s.via = L"2.4 GHz receiver";
+        s.via = Cable(pid) ? L"USB cable" : L"2.4 GHz receiver";
         s.percent = r[13];
-        s.charging = r[14] != 0;
+        s.charging = r[14] != 0 || cableCharging;
         cache = { GetTickCount64(), s, true };
         ctx.Add(s, 0x1532, pid);
     }

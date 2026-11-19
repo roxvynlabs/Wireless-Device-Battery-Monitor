@@ -24,6 +24,7 @@ const BrandStyle kBrands[] = {
     { Accent::Jbl,          L"JBL",          { 255,  61,   0 }, { 204,  52,   0 } },  // #FF3D00
     { Accent::CoolerMaster, L"Cooler Master",{ 157, 107, 255 }, { 106,  43, 217 } },  // purple
     { Accent::Steam,        L"Steam",        {  26, 159, 255 }, {  11, 111, 191 } },  // #1A9FFF
+    { Accent::Redragon,     L"Redragon",     { 230,   0,  18 }, { 192,   0,  15 } },  // #E60012
 };
 
 std::wstring Lower(std::wstring s) {
@@ -61,6 +62,7 @@ const KeyRule kKeys[] = {
     { L"jbl:", Accent::Jbl },
     { L"coolermaster:", Accent::CoolerMaster },
     { L"steam:", Accent::Steam },
+    { L"redragon:", Accent::Redragon },
 };
 
 // Vendor ids that only one of these brands uses. Shared ones are left to the name check:
@@ -110,6 +112,7 @@ const NameRule kNames[] = {
     { L"jbl", How::Word, Accent::Jbl },
     { L"cooler master", How::Contains, Accent::CoolerMaster }, { L"coolermaster", How::Contains, Accent::CoolerMaster },
     { L"steam controller", How::Contains, Accent::Steam },
+    { L"redragon", How::Contains, Accent::Redragon },
 };
 
 bool Matches(const std::wstring& n, const NameRule& r) {

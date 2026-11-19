@@ -2,8 +2,9 @@
 // Phone Link keeps the Windows 11 Start menu companion card up to date in its package folder:
 //   %LOCALAPPDATA%\Packages\Microsoft.YourPhone_8wekyb3d8bbwe\LocalState\StartMenu\StartMenuCompanion.json
 // It is an Adaptive Card whose "speak" field reads "<phone name> - Connected to your PC" and
-// whose battery element carries the tooltip "Battery <n>% remaining". Only those two fields are
-// read; the rest of the card (notification previews) is ignored.
+// whose battery element carries the tooltip "Battery <n>% remaining" (", charging" appended while
+// the phone charges). Only those two fields are read; the rest of the card (notification
+// previews) is ignored.
 // The file is an undocumented Phone Link implementation detail, so the parse is strict: anything
 // unexpected means no phone is reported. Read-only, no device or network access.
 #include "drivers.h"
@@ -58,14 +59,15 @@ bool JsonString(const std::wstring& json, const wchar_t* key, std::wstring& valu
     return i < json.size();
 }
 
-// <n> from the first "Battery <n>% remaining".
-int BatteryPercent(const std::wstring& json) {
+// <n> from the first "Battery <n>% remaining"; `charging` is set when it goes on ", charging".
+int BatteryPercent(const std::wstring& json, bool& charging) {
     const std::wstring pat = L"Battery ";
     for (size_t i = json.find(pat); i != std::wstring::npos; i = json.find(pat, i + 1)) {
         size_t j = i + pat.size(), k = j;
         while (k < json.size() && iswdigit(json[k]) && k - j < 3) k++;
         if (k > j && json.compare(k, 11, L"% remaining") == 0) {
             int v = _wtoi(json.substr(j, k - j).c_str());
+            charging = json.compare(k + 11, 10, L", charging") == 0;
             if (v >= 0 && v <= 100) return v;
         }
     }
@@ -86,7 +88,8 @@ void PollPhoneLink(PollContext& ctx) {
     // "Nothing Phone (4a) Pro - Connected to your PC"; anything else (disconnected, setup cards) is skipped.
     const std::wstring suffix = L" - Connected to your PC";
     if (speak.size() <= suffix.size() || speak.compare(speak.size() - suffix.size(), suffix.size(), suffix) != 0) return;
-    int pct = BatteryPercent(json);
+    bool charging = false;
+    int pct = BatteryPercent(json, charging);
     if (pct < 0) return;
 
     FILETIME now{};
@@ -102,6 +105,7 @@ void PollPhoneLink(PollContext& ctx) {
     s.via = L"Phone Link";
     s.kind = DeviceKind::Phone;
     s.percent = pct;
+    s.charging = charging;
     s.asleep = ageSec > kStaleSec;
     ctx.out.push_back(s);
 }

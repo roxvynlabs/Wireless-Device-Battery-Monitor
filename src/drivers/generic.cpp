@@ -16,6 +16,19 @@
 
 namespace {
 
+constexpr bool MergeConnectedState(bool previous, bool current) {
+    return previous || current;
+}
+
+static_assert(!MergeConnectedState(false, false));
+static_assert(MergeConnectedState(false, true));
+static_assert(MergeConnectedState(true, false));
+static_assert(MergeConnectedState(true, true));
+
+// Enumeration order must not change the result.
+static_assert(MergeConnectedState(MergeConnectedState(false, true), false));
+static_assert(MergeConnectedState(MergeConnectedState(false, false), true));
+
 bool IsBatteryUsage(USHORT page, USAGE usage) {
     return (page == 0x06 && usage == 0x20) || (page == 0x85 && usage == 0x65);
 }
@@ -24,8 +37,9 @@ const DEVPROPKEY kBtBattery = { { 0x104EA319, 0x6EE2, 0x4701, { 0xBD, 0x47, 0x8D
 const DEVPROPKEY kIsConnected = { { 0x83DA6326, 0x97A6, 0x4088, { 0x94, 0x53, 0xA1, 0x92, 0x3F, 0x57, 0x3B, 0x29 } }, 15 };
 const DEVPROPKEY kClassOfDevice = { { 0x2BD67D8B, 0x8BEB, 0x48D5, { 0x87, 0xE0, 0x6C, 0xDA, 0x34, 0x28, 0x04, 0x0A } }, 10 };
 
-DeviceKind KindFromClassOfDevice(UINT32 cod) {
+constexpr DeviceKind KindFromClassOfDevice(UINT32 cod) {
     UINT32 major = (cod >> 8) & 0x1F, minor = (cod >> 2) & 0x3F;
+    if (major == 0x02) return DeviceKind::Phone;
     if (major == 0x04) return DeviceKind::Headset;
     if (major == 0x05) {
         if ((minor & 0x0F) == 0x01 || (minor & 0x0F) == 0x02) return DeviceKind::Gamepad;
@@ -34,6 +48,17 @@ DeviceKind KindFromClassOfDevice(UINT32 cod) {
     }
     return DeviceKind::Other;
 }
+
+static_assert(KindFromClassOfDevice(0x0200) == DeviceKind::Phone);
+static_assert(KindFromClassOfDevice(0x0204) == DeviceKind::Phone);
+
+static_assert(KindFromClassOfDevice(0x0400) == DeviceKind::Headset);
+static_assert(KindFromClassOfDevice(0x0540) == DeviceKind::Keyboard);
+static_assert(KindFromClassOfDevice(0x0580) == DeviceKind::Mouse);
+static_assert(KindFromClassOfDevice(0x0504) == DeviceKind::Gamepad);
+
+static_assert(KindFromClassOfDevice(0x0000) == DeviceKind::Other);
+
 
 std::wstring StrProp(HDEVINFO di, SP_DEVINFO_DATA* dd, const DEVPROPKEY& key) {
     DEVPROPTYPE t;
@@ -57,6 +82,9 @@ std::wstring FirstStringProp(HDEVINFO di, SP_DEVINFO_DATA* dd, const DEVPROPKEY&
 // so KindFromClassOfDevice has nothing to work with and a LE keyboard or mouse ends up as "Other".
 // Windows still files the device under a category for Settings > Bluetooth & devices; use it.
 DeviceKind KindFromCategory(const std::wstring& c) {
+    if (c == L"Communication.Phone" ||
+        c.rfind(L"Communication.Phone.", 0) == 0)
+        return DeviceKind::Phone;
     if (c == L"Input.Keyboard") return DeviceKind::Keyboard;
     if (c == L"Input.Mouse") return DeviceKind::Mouse;
     if (c == L"Input.Gaming") return DeviceKind::Gamepad;
@@ -202,8 +230,11 @@ void PollBluetooth(PollContext& ctx) {
             if (!cat.empty()) containerCat[cid] = cat;
             DEVPROP_BOOLEAN conn;
             if (SetupDiGetDevicePropertyW(di, &dd, &kIsConnected, &t, (PBYTE)&conn, sizeof(conn), nullptr, 0) &&
-                t == DEVPROP_TYPE_BOOLEAN)
-                containerConn[cid] = conn != DEVPROP_FALSE;
+                t == DEVPROP_TYPE_BOOLEAN) {
+                // Classic and LE nodes can share one container. Keep it connected when
+                // either transport is active, regardless of device enumeration order.
+                containerConn[cid] = MergeConnectedState(containerConn[cid], conn != DEVPROP_FALSE);
+            }
         }
 
         BYTE pct = 0;

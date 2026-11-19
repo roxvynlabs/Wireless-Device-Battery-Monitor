@@ -7,7 +7,7 @@
 enum class Accent {
     None,
     Razer, Logitech, SteelSeries, Corsair, HyperX, Rog, Zowie,
-    PlayStation, Xbox, Galaxy, Apple, Jabra, Jbl, CoolerMaster, Steam,
+    PlayStation, Xbox, Galaxy, Apple, Jabra, Jbl, CoolerMaster, Steam, Redragon,
 };
 
 struct BrandColor { unsigned char r, g, b; };

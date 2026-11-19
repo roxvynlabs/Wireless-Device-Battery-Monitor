@@ -246,11 +246,62 @@ void PollPelta(PollContext& ctx) {
     }
 }
 
+// ROG Cetra Open Wireless (0B05:1CAC) earbuds on their SpeedNova USB-C dongle. Same vendor
+// collection and report as the Pelta (FF00:0001, interface 3, report id CC, 64 bytes), but the
+// battery is behind sub 12 (sub 07 answers with unrelated data on this dongle):
+//   CC 12 12 -> CC 12 12 00 00 [5] left % [6] right % [7] case %
+// Verified on hardware against Armoury Crate (L 99 / R 99 / case 86); [5] rose 99 -> 100 with only
+// the left earbud in the case. The case level is the last one the case reported (Armoury Crate
+// notes it is not live). A level of 0 is treated as not reported. With both earbuds in the closed
+// case the dongle answers FF AA, shown as asleep.
+void PollCetraOpen(PollContext& ctx) {
+    constexpr USHORT pid = 0x1CAC;
+    if (ctx.IsClaimed(0x0B05, pid)) return;
+    auto colls = ctx.Find(0x0B05, pid, [](const HidColl& c) {
+        return c.iface == 3 && c.page() == 0xFF00 && c.usage() == 0x0001 && c.inLen() >= 8 && c.outLen() >= 8;
+    });
+    for (const HidColl* c : colls) {
+        HidDev d;
+        std::vector<BYTE> r;
+        if (!d.Open(*c)) continue;
+        Reply res = PeltaQuery(d, 0x12, r);
+        if (res == Reply::None) continue;
+        DeviceStatus s;
+        s.key = L"rog:" + Hex4(pid) + L":hs";
+        s.name = L"ROG Cetra Open Wireless";
+        s.kind = DeviceKind::Headset;
+        s.via = L"2.4 GHz receiver";
+        auto level = [&](int at) { return r.size() > (size_t)at && r[at] > 0 && r[at] <= 100 ? (int)r[at] : -1; };
+        int left = res == Reply::Ok ? level(5) : -1;
+        int right = res == Reply::Ok ? level(6) : -1;
+        int box = res == Reply::Ok ? level(7) : -1;
+        if (left < 0 && right < 0) {
+            s.asleep = true;
+        } else {
+            s.percent = left < 0 ? right : right < 0 ? left : (left < right ? left : right);
+            std::wstring detail;
+            auto part = [&](const wchar_t* label, int v) {
+                if (v < 0) return;
+                if (!detail.empty()) detail += L", ";
+                detail += label + std::to_wstring(v) + L"%";
+            };
+            part(L"L ", left);
+            part(L"R ", right);
+            part(L"case ", box);
+            s.detail = detail;
+        }
+        ctx.out.push_back(s);
+        ctx.Claim(0x0B05, pid);
+        break;
+    }
+}
+
 }  // namespace
 
 void PollRog(PollContext& ctx) {
     std::vector<std::wstring> seen;  // one entry per device name (wired + receiver both present while charging)
     PollPelta(ctx);
+    PollCetraOpen(ctx);
     PollOmni(ctx, seen);
     for (const Model& m : kModels) {
         if (ctx.IsClaimed(0x0B05, m.pid)) continue;

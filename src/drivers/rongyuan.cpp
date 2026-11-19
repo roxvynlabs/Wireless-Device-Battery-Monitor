@@ -4,9 +4,15 @@
 //   reply   [00][ok][keyboard %][mouse %][keyboard offline][mouse offline]...
 // Receiver list and protocol from github.com/qu1ncky/BatteryTray (RongyuanDongleProvider, MIT),
 // itself taken from the official ATTACK SHARK web driver.
+// The status report carries no model name, so names come from the receiver's product string with
+// the link words stripped ("AJAZZ 2.4G 8K" -> "AJAZZ wireless mouse"). 3151:402D is shared by
+// several mice (Attack Shark R3, AJAZZ AJ179 Pro, ...); it is only called "Attack Shark R3" when
+// the product string names no other brand.
 #include "drivers.h"
 
 #include <algorithm>
+#include <cwctype>
+#include <sstream>
 
 namespace {
 
@@ -25,6 +31,21 @@ const UINT kReceivers[] = {
 bool IsReceiver(USHORT vid, USHORT pid) {
     UINT key = ((UINT)vid << 16) | pid;
     return std::find(std::begin(kReceivers), std::end(kReceivers), key) != std::end(kReceivers);
+}
+
+// Product string without link words: "AJAZZ 2.4G 8K" -> "AJAZZ", "2.4G Wireless Receiver" -> "".
+std::wstring Brand(const std::wstring& product) {
+    std::wistringstream in(product);
+    std::wstring word, out;
+    while (in >> word) {
+        std::wstring u = word;
+        for (auto& ch : u) ch = (wchar_t)std::towupper(ch);
+        if (u == L"2.4G" || u == L"2.4GHZ" || u == L"8K" || u == L"4K" || u == L"2K" || u == L"1K" || u == L"RECEIVER" ||
+            u == L"WIRELESS" || u == L"DONGLE" || u == L"USB")
+            continue;
+        out += (out.empty() ? L"" : L" ") + word;
+    }
+    return out;
 }
 
 bool QueryStatus(HidDev& d, std::vector<BYTE>& reply) {
@@ -64,11 +85,22 @@ void PollRongyuan(PollContext& ctx) {
                 BYTE level = r[keyboard ? 2 : 3];
                 DeviceStatus s;
                 s.key = L"rongyuan:" + Hex4(vid) + L":" + Hex4(pid) + (keyboard ? L":kb" : L":ms");
-                if (vid == 0x3151 && pid == 0x402D && !keyboard) s.name = L"Attack Shark R3";
+                std::wstring brand = Brand(product), upper = brand;
+                for (auto& ch : upper) ch = (wchar_t)std::towupper(ch);
+                bool otherBrand = !brand.empty() && upper.find(L"ATTACK SHARK") == std::wstring::npos;
+                if (vid == 0x3151 && pid == 0x402D && !keyboard && !otherBrand) s.name = L"Attack Shark R3";
+                else if (vid == 0x3151 && pid == 0x5038 && keyboard) s.name = L"MonsGeek keyboard";  // receiver says "MonsGeek 2.4G Wireless Keyboard"
+                else if (generic && !brand.empty()) s.name = brand + (keyboard ? L" wireless keyboard" : L" wireless mouse");
                 else if (generic) s.name = keyboard ? L"Wireless keyboard" : L"Wireless mouse";
                 else s.name = product;
                 s.kind = keyboard ? DeviceKind::Keyboard : DeviceKind::Mouse;
                 s.via = L"2.4 GHz receiver";
+
+                // Retain the last battery reading while this keyboard is sleeping.
+                if (vid == 0x3151 && pid == 0x5038 && keyboard) {
+                    s.graceSec = 1800;
+                }
+
                 if (level >= 1 && level <= 100) s.percent = level;
                 ctx.out.push_back(s);
                 any = true;

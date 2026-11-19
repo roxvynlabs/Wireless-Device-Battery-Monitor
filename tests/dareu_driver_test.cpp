@@ -181,6 +181,21 @@ int main() {
     assert(ctx.out[0].percent == 80 && sends == 2 && opens == 4);
     assert(queriedPids[0] == 0x1090 && queriedPids[1] == 0x1074);
 
+    ctx = Context(0x1125);
+    replies = { Reply(64) };
+    PollDareu(ctx);
+    assert(ctx.out.size() == 1 && ctx.IsClaimed(0x260D, 0x1125));
+    assert(ctx.out[0].name == L"Sharkoon Skiller SGM50W" && ctx.out[0].key == L"dareu:260D:1125");
+    assert(ctx.out[0].via == L"2.4 GHz receiver" && ctx.out[0].percent == 64 && sends == 1);
+
+    ctx = Context(0x1125);
+    ctx.colls.push_back(Collection(true, 0x1074));
+    ctx.colls.push_back(Collection(false, 0x1074));
+    replies = { Reply(80), Reply(64) };
+    PollDareu(ctx);  // an EM901X reading does not hide the SGM50W
+    assert(ctx.out.size() == 2 && ctx.out[0].percent == 80 && ctx.out[1].percent == 64);
+    assert(queriedPids[0] == 0x1074 && queriedPids[1] == 0x1125 && sends == 2);
+
     ctx = Context(0x1090);
     wiredReplies = { wrongId, failed, shortReply, Reply(101), Reply(54) };
     PollDareu(ctx);

@@ -33,6 +33,14 @@ int main() {
     assert(b.percent == 100 && !b.charging && b.mousePid == 0x4614);
     assert(b.connection == Rapoo::Connection::Receiver);
 
+    // 13-byte VT3 Max Gen 2 receiver collection (issue #1396): no room for the mouse PID.
+    const std::vector<std::uint8_t> short13 = {
+        0x07, 0x20, 0x03, 0x20, 0x03, 0x20, 0x03, 0x01, 0x19, 0x00, 0x04, 0x84, 0x00
+    };
+    assert(Rapoo::DecodeBattery(short13.data(), short13.size(), b));
+    assert(b.percent == 25 && !b.charging && b.mousePid == 0);
+    assert(b.connection == Rapoo::Connection::Receiver);
+
     // Captured on the same VT9 Gen 2 over USB cable 24AE:4614, FF00:0002 (19-byte input report).
     const std::vector<std::uint8_t> capturedVt9Cable = {
         0x07, 0x12, 0x04, 0x80, 0x0C, 0x80, 0x0C, 0x02, 0x64, 0x00,

@@ -1,4 +1,4 @@
-// Darmoshark M3 over its Telink receiver. Protocol reference:
+// Darmoshark M3 and M3S over their Telink receivers. Protocol reference:
 // https://github.com/Barba2k2/darmoshark-m3-configurator/blob/main/PROTOCOL.md
 #include "drivers.h"
 
@@ -6,8 +6,16 @@
 
 namespace {
 constexpr USHORT kVid = 0x248A;
-constexpr USHORT kReceiver = 0xFF30;
-constexpr USHORT kMouse = 0xFF12;
+struct Model {
+    USHORT receiver;
+    USHORT mouse;
+    const wchar_t* name;
+};
+
+constexpr Model kModels[] = {
+    {0xFF30, 0xFF12, L"Darmoshark M3"},
+    {0xFF31, 0xFF18, L"Darmoshark M3S"},
+};
 constexpr BYTE kFeature = 0x51;
 constexpr BYTE kBond = 0x03;
 constexpr BYTE kIdentify = 0x06;
@@ -39,21 +47,20 @@ bool Query(HidDev& device, BYTE opcode, std::vector<BYTE>& reply, ULONGLONG rece
     return false;
 }
 
-int ReadBattery(HidDev& device, ULONGLONG deadline) {
+int ReadBattery(HidDev& device, USHORT mouse, ULONGLONG deadline) {
     // The bond query replaces any previous battery reply in the receiver's
     // feature buffer before we request another one.
     std::vector<BYTE> reply;
     if (!Query(device, kBond, reply, deadline) ||
-        ReadId(reply, 3) != kVid || ReadId(reply, 5) != kMouse || !reply[7]) return -1;
+        ReadId(reply, 3) != kVid || ReadId(reply, 5) != mouse || !reply[7]) return -1;
     if (!Query(device, kIdentify, reply, deadline) || reply[2] != 1 ||
-        ReadId(reply, 4) != kVid || ReadId(reply, 6) != kMouse || reply[11] > 100) return -1;
+        ReadId(reply, 4) != kVid || ReadId(reply, 6) != mouse || reply[11] > 100) return -1;
     return reply[11];
 }
-}  // namespace
 
-void PollDarmoshark(PollContext& ctx) {
-    if (ctx.IsClaimed(kVid, kReceiver)) return;
-    for (const HidColl* coll : ctx.Find(kVid, kReceiver, [](const HidColl& c) {
+void PollModel(PollContext& ctx, const Model& model) {
+    if (ctx.IsClaimed(kVid, model.receiver)) return;
+    for (const HidColl* coll : ctx.Find(kVid, model.receiver, [](const HidColl& c) {
              return c.iface == 1 && c.page() == 0x008C && c.usage() == 1 &&
                     c.inLen() == 33 && c.outLen() == 33 && c.featLen() == 1001;
          })) {
@@ -63,17 +70,24 @@ void PollDarmoshark(PollContext& ctx) {
 
         // Leave time to reread the bond and retry if the first battery request goes unanswered.
         const auto firstDeadline = (std::min)(deadline, GetTickCount64() + kFirstAttemptMs);
-        int percent = ReadBattery(device, firstDeadline);
-        if (percent < 0 && GetTickCount64() < deadline) percent = ReadBattery(device, deadline);
+        int percent = ReadBattery(device, model.mouse, firstDeadline);
+        if (percent < 0 && GetTickCount64() < deadline) percent = ReadBattery(device, model.mouse, deadline);
         if (percent < 0) continue;
 
         DeviceStatus status;
         status.key = L"darmoshark:" + coll->path;
-        status.name = L"Darmoshark M3";
+        status.name = model.name;
         status.kind = DeviceKind::Mouse;
         status.via = L"2.4 GHz receiver";
         status.percent = percent;
-        ctx.Add(status, kVid, kReceiver);
+        ctx.Add(status, kVid, model.receiver);
         return;
+    }
+}
+}  // namespace
+
+void PollDarmoshark(PollContext& ctx) {
+    for (const auto& model : kModels) {
+        PollModel(ctx, model);
     }
 }
